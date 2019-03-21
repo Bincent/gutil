@@ -9,9 +9,9 @@
 
 #### 安装教程
 
-码云：go get https://gitee.com/reepu/gutil
+码云：go get -u -v gitee.com/reepu/gutil
 
-GitHub：go get https://github.com/Bincent/gutil
+GitHub：go get -u -v github.com/bincent/gutil
 
 #### 使用说明
 
