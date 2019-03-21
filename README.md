@@ -11,7 +11,7 @@
 
 码云：go get https://gitee.com/reepu/gutil
 
-GitHub：go get https://gitee.com/reepu/gutil
+GitHub：go get https://github.com/Bincent/gutil
 
 #### 使用说明
 
