@@ -2,7 +2,6 @@ package gutil
 
 import (
 	"errors"
-	"github.com/bincent/balance"
 	"github.com/hashicorp/consul/api"
 	"time"
 )
@@ -81,14 +80,14 @@ func (this *Consul) Register(register *ConsulRegister) error {
 }
 
 // 服务发现
-func (this *Consul) Discover(discover *ConsulDiscover) (address string, err error) {
-	var insts []*balance.Instance
+func (this *Consul) Discover(discover *ConsulDiscover) (agentService []*api.AgentService, err error) {
+	var _agentService []*api.AgentService
 
 	services, _, err := this.Client.Catalog().Services(&api.QueryOptions{})
 	for name := range services {
 		servicesData, _, err := this.Client.Health().Service(name, "", true,
 			&api.QueryOptions{})
-		if err != nil { return "", err }
+		if err != nil { return _agentService, err }
 
 		for _, entry := range servicesData {
 			if discover.ServiceName != entry.Service.Service {
@@ -100,13 +99,12 @@ func (this *Consul) Discover(discover *ConsulDiscover) (address string, err erro
 					continue
 				}
 
-				node := balance.NewInstance(entry.Service.Address, entry.Service.Port)
-				insts = append(insts, node)
+				_agentService = append(_agentService, entry.Service)
 			}
 		}
 	}
 
-	return balance.Round(insts)
+	return _agentService, nil
 }
 
 func (this *Consul) SetClient(client *api.Client) {
