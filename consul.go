@@ -2,48 +2,53 @@ package gutil
 
 import (
 	"errors"
+	"fmt"
 	"github.com/hashicorp/consul/api"
 	"time"
 )
 
 type Consul struct {
+	Config	*api.Config
 	Client 	*api.Client
 }
 
-type ConsulDiscover struct {
-	ServiceName                    string
-	Balance                        string
+type ServiceInfo struct {
+	Host      string
+	Port      int
 }
 
-type ConsulRegister struct {
-	ServiceID					   string
+type RegisterInfo struct {
+	ServiceInfo					   ServiceInfo
 	ServiceName                    string
-	ServiceTag                     []string
-	Port                           int
-	MonitorAddress				   string
 	Timeout                        time.Duration
 	Interval                       time.Duration
 	DeregisterCriticalServiceAfter time.Duration
 }
 
+// 连接Consul
+func (this *Consul) Connect()  {
+	if (this.Client == nil) {
+		config := api.DefaultConfig()
+		config.Scheme = this.Config.Scheme
+		config.Address = this.Config.Address
+		client, err := api.NewClient(config)
+		if (err != nil) {
+			fmt.Println("consul client error : ", err.Error())
+			panic(err)
+		}
+
+		this.Client = client
+	}
+}
+
 // 注册服务
-func (this *Consul) Register(register *ConsulRegister) error {
-	ip := LocalIP()
+func (this *Consul) Register(register *RegisterInfo) error {
+	if len(register.ServiceInfo.Host) > 0 {
+		register.ServiceInfo.Host = LocalIP()
+	}
 
 	if len(register.ServiceName) > 0 {
 		return errors.New("must need Service Name")
-	}
-
-	//if (register.Port == nil) {
-	//	return errors.New("must need Service Port")
-	//}
-
-	if len(register.ServiceID) > 0 {
-		register.ServiceID = register.ServiceName + "-" + ip
-	}
-
-	if len(register.MonitorAddress) > 0 {
-		register.MonitorAddress = "tcp://" + ip
 	}
 
 	if (register.Timeout.String() == "") {
@@ -58,14 +63,16 @@ func (this *Consul) Register(register *ConsulRegister) error {
 		register.DeregisterCriticalServiceAfter = 30
 	}
 
+	fmt.Println(this.Client)
+
 	service := &api.AgentServiceRegistration{
-		ID:      register.ServiceID,
+		ID:      fmt.Sprintf("%s-%s-%d", register.ServiceName, register.ServiceInfo.Host, register.ServiceInfo.Port),
 		Name:    register.ServiceName,
-		Port:    register.Port,
-		Address: ip,
-		Tags:    register.ServiceTag,
+		Port:    register.ServiceInfo.Port,
+		Address: register.ServiceInfo.Host,
+		Tags:    []string{register.ServiceName},
 		Check: &api.AgentServiceCheck{
-			TCP:     register.MonitorAddress,
+			TCP:     fmt.Sprintf("tcp://%s-%d", register.ServiceInfo.Host, register.ServiceInfo.Port),
 			Interval: string(register.Interval * time.Second),
 			Timeout:  string(register.Timeout * time.Second),
 			DeregisterCriticalServiceAfter: string(register.DeregisterCriticalServiceAfter * time.Second),
@@ -80,33 +87,34 @@ func (this *Consul) Register(register *ConsulRegister) error {
 }
 
 // 服务发现
-func (this *Consul) Discover(discover *ConsulDiscover) (agentService []*api.AgentService, err error) {
-	var _agentService []*api.AgentService
+func (this *Consul) Discover(service_name string) (agentService []*api.AgentService, err error) {
+	var AgentService []*api.AgentService
 
 	services, _, err := this.Client.Catalog().Services(&api.QueryOptions{})
+	if err != nil {
+		return AgentService, err
+	}
+
 	for name := range services {
 		servicesData, _, err := this.Client.Health().Service(name, "", true,
 			&api.QueryOptions{})
-		if err != nil { return _agentService, err }
+		if err != nil {
+			return AgentService, err
+		}
 
 		for _, entry := range servicesData {
-			if discover.ServiceName != entry.Service.Service {
+			if service_name != entry.Service.Service {
 				continue
 			}
 
 			for _, health := range entry.Checks {
-				if health.ServiceName != discover.ServiceName {
+				if service_name != health.ServiceName {
 					continue
 				}
-
-				_agentService = append(_agentService, entry.Service)
+				AgentService = append(AgentService, entry.Service)
 			}
 		}
 	}
 
-	return _agentService, nil
-}
-
-func (this *Consul) SetClient(client *api.Client) {
-	this.Client = client
+	return AgentService, nil
 }

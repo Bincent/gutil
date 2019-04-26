@@ -14,5 +14,6 @@ func LocalIP() string {
 			}
 		}
 	}
+
 	return ""
 }
