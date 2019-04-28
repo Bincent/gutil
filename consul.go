@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/consul/api"
+	"net"
+	"strconv"
 )
 
 type Consul struct {
@@ -53,12 +55,12 @@ func (this *Consul) Register(register *RegisterInfo) error {
 		return errors.New("must need Service Name")
 	}
 
-	if len(register.Timeout) == 0{
-		register.Timeout = "3s"
+	if len(register.Timeout) == 0 {
+		register.Timeout = "1s"
 	}
 
 	if len(register.Interval) == 0 {
-		register.Interval = "5s"
+		register.Interval = "10s"
 	}
 
 	if len(register.DeregisterCriticalServiceAfter) == 0 {
@@ -72,7 +74,7 @@ func (this *Consul) Register(register *RegisterInfo) error {
 		Address: register.ServiceInfo.Host,
 		Tags:    []string{register.ServiceName},
 		Check: &api.AgentServiceCheck{
-			TCP:     fmt.Sprintf("tcp://%s-%d", register.ServiceInfo.Host, register.ServiceInfo.Port),
+			TCP: net.JoinHostPort(register.ServiceInfo.Host, strconv.Itoa(register.ServiceInfo.Port)),
 			Interval: register.Interval,
 			Timeout:  register.Timeout,
 			DeregisterCriticalServiceAfter: register.DeregisterCriticalServiceAfter,
