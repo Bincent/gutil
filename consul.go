@@ -9,8 +9,6 @@ import (
 )
 
 type Consul struct {
-	Scheme	string
-	Address	string
 	Client 	*api.Client
 }
 
@@ -28,21 +26,18 @@ type RegisterInfo struct {
 }
 
 // 连接Consul
-func (this *Consul) Connect() {
-	if (this.Client == nil) {
-		config := api.DefaultConfig()
-		config.Scheme = this.Scheme
-		config.Address = this.Address
-		client, err := api.NewClient(config)
-		if (err != nil) {
-			fmt.Println("consul client error : ", err.Error())
-			panic(err)
-		}
-
-		this.Client = client
+func NewConsul(Scheme string, Address string) *Consul {
+	consul := &Consul{}
+	client, err := api.NewClient(&api.Config{
+		Scheme:Scheme, Address:Address,
+	})
+	if (err != nil) {
+		fmt.Println("consul client error : ", err.Error())
+		panic(err)
 	}
+	consul.Client = client
 
-	fmt.Println("consul connect success")
+	return consul
 }
 
 // 注册服务
@@ -93,9 +88,7 @@ func (this *Consul) Discover(service_name string) ([]*api.AgentService, error) {
 	services, _, err := this.Client.Health().Service(service_name, "", true,
 		&api.QueryOptions{})
 
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 
 	var agentService []*api.AgentService
 	for _, entry := range services {
