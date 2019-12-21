@@ -22,7 +22,7 @@ type RegisterInfo struct {
 	ServiceName                    string
 	Timeout                        string
 	Interval                       string
-	DeregisterCriticalServiceAfter string
+	Deregister					   string
 }
 
 // 连接Consul
@@ -42,12 +42,16 @@ func NewConsul(Scheme string, Address string) *Consul {
 
 // 注册服务
 func (this *Consul) Register(register *RegisterInfo) error {
+	if len(register.ServiceName) == 0 {
+		return errors.New("must need Service Name")
+	}
+
 	if len(register.ServiceInfo.Host) == 0 {
 		register.ServiceInfo.Host = LocalIP()
 	}
 
-	if len(register.ServiceName) == 0 {
-		return errors.New("must need Service Name")
+	if register.ServiceInfo.Port == 0 {
+		return errors.New("must need Service Port")
 	}
 
 	if len(register.Timeout) == 0 {
@@ -58,28 +62,30 @@ func (this *Consul) Register(register *RegisterInfo) error {
 		register.Interval = "10s"
 	}
 
-	if len(register.DeregisterCriticalServiceAfter) == 0 {
-		register.DeregisterCriticalServiceAfter = "30s"
+	if len(register.Deregister) == 0 {
+		register.Deregister = "30s"
 	}
 
 	service := &api.AgentServiceRegistration{
 		ID:      fmt.Sprintf("%s-%s-%d", register.ServiceName, register.ServiceInfo.Host, register.ServiceInfo.Port),
 		Name:    register.ServiceName,
-		Port:    register.ServiceInfo.Port,
 		Address: register.ServiceInfo.Host,
+		Port:    register.ServiceInfo.Port,
 		Tags:    []string{register.ServiceName},
 		Check: &api.AgentServiceCheck{
 			TCP: net.JoinHostPort(register.ServiceInfo.Host, strconv.Itoa(register.ServiceInfo.Port)),
 			Interval: register.Interval,
 			Timeout:  register.Timeout,
-			DeregisterCriticalServiceAfter: register.DeregisterCriticalServiceAfter,
+			DeregisterCriticalServiceAfter: register.Deregister,
 		},
 	}
 
 	if err := this.Client.Agent().ServiceRegister(service); err != nil {
+		fmt.Println("register service for consul failted")
 		return err
 	}
 
+	fmt.Println("register service for consul success")
 	return nil
 }
 
